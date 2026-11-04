@@ -1,0 +1,36 @@
+{
+  "name": "kinetelle-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c cyan,green \"vite --host 0.0.0.0\" \"node server/index.mjs --dev\"",
+    "build": "tsc -b && vite build",
+    "start": "node server/index.mjs",
+    "preview": "node server/index.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@decartai/sdk": "^0.2.14",
+    "@supabase/supabase-js": "^2.119.0",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "latest"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "concurrently": "^10.0.6",
+    "jsdom": "^30.1.3",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "^5.1.0"
+  }
+}
