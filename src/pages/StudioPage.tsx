@@ -9,6 +9,7 @@ import DirectionPanel from '../features/studio/DirectionPanel'
 import PreviewStage from '../features/studio/PreviewStage'
 import useCameraInput from '../features/studio/useCameraInput'
 import type { TransformationConnectionState, TransformationDirection, TransformationSession } from '../features/studio/transformation/TransformationAdapter'
+import { startLiveUsageSession, stopLiveUsageSession, touchLiveUsageSession } from '../lib/liveUsage'
 import {
   createSavedDirection,
   loadStudioLibrary,
@@ -59,6 +60,8 @@ export default function StudioPage() {
   const noticeTimeout = useRef<number | undefined>(undefined)
   const preferencesHydratedForUser = useRef<string | null>(null)
   const previousUserId = useRef<string | null>(user?.id ?? null)
+  const liveUsageSessionId = useRef<string | null>(null)
+  const liveUsageHeartbeat = useRef<number | undefined>(undefined)
   const camera = useCameraInput()
 
   const notify = (message: string) => {
@@ -67,15 +70,44 @@ export default function StudioPage() {
     noticeTimeout.current = window.setTimeout(() => setNotice(''), 2800)
   }
 
+  const stopUsageTracking = () => {
+    window.clearInterval(liveUsageHeartbeat.current)
+    liveUsageHeartbeat.current = undefined
+    const id = liveUsageSessionId.current
+    liveUsageSessionId.current = null
+    if (id) void stopLiveUsageSession(id).catch(() => undefined)
+  }
+
+  const startUsageTracking = async (userId: string, generation: number) => {
+    try {
+      const id = await startLiveUsageSession()
+      if (generation !== sessionGeneration.current || !session.current || user?.id !== userId) {
+        void stopLiveUsageSession(id).catch(() => undefined)
+        return
+      }
+      stopUsageTracking()
+      liveUsageSessionId.current = id
+      liveUsageHeartbeat.current = window.setInterval(() => {
+        void touchLiveUsageSession(id).catch(() => undefined)
+      }, 30_000)
+    } catch {
+      if (generation === sessionGeneration.current) {
+        notify('Your live session is active, but usage tracking is unavailable. Check the Supabase usage migration.')
+      }
+    }
+  }
+
   useEffect(() => () => {
     window.clearTimeout(noticeTimeout.current)
     sessionGeneration.current += 1
+    stopUsageTracking()
     session.current?.disconnect()
     session.current = null
   }, [])
 
   const resetConnection = () => {
     sessionGeneration.current += 1
+    stopUsageTracking()
     session.current?.disconnect()
     session.current = null
     setConnectionState('idle')
@@ -220,6 +252,7 @@ export default function StudioPage() {
 
     const generation = ++sessionGeneration.current
     let source: MediaStream | null = camera.stream
+    stopUsageTracking()
     session.current?.disconnect()
     session.current = null
     setOutputStream(source)
@@ -260,6 +293,7 @@ export default function StudioPage() {
           setConnectionState((current) => (state === 'connected' || state === 'generating') && current === 'connecting' ? current : state)
           setConnectionMessage(connectionStatusMessage(state))
           if (state === 'disconnected') {
+            stopUsageTracking()
             setIsDecartOutput(false)
             setOutputStream(liveSource)
             setConnectionError('The Decart connection ended. Start another live session when ready.')
@@ -271,6 +305,7 @@ export default function StudioPage() {
         },
         onSessionEnded: (reason) => {
           if (generation !== sessionGeneration.current) return
+          stopUsageTracking()
           session.current = null
           setConnectionState('error')
           setConnectionError(sessionEndMessage(reason))
@@ -285,6 +320,7 @@ export default function StudioPage() {
         return
       }
       session.current = nextSession
+      if (user) void startUsageTracking(user.id, generation)
       setConnectionState('connected')
       setConnectionMessage('Live Decart session is active.')
       setConnectionError(null)
@@ -348,7 +384,7 @@ export default function StudioPage() {
         <div className="studio-header-center"><span className="studio-header-overline">KINETELLE / WORKSPACE</span><span className="studio-header-title">Live Studio <span>02</span></span></div>
         <div className="studio-header-right">
           <span className="phase-badge"><span /> PHASE 3 · ACCOUNT WORKSPACE</span>
-          <Link className="studio-account-link" to="/account?next=%2Fstudio"><UserRound size={14} aria-hidden="true" /><span>{user ? 'Account' : 'Sign in'}</span></Link>
+          <Link className="studio-account-link" to={user ? '/dashboard' : '/account?next=%2Fstudio'}><UserRound size={14} aria-hidden="true" /><span>{user ? 'Dashboard' : 'Sign in'}</span></Link>
           <Link className="studio-back-link" to="/"><ArrowLeft size={14} aria-hidden="true" /><span>Exit Studio</span></Link>
         </div>
       </header>
@@ -377,7 +413,7 @@ export default function StudioPage() {
               <div className="studio-note-icon"><ShieldCheck size={16} aria-hidden="true" /></div>
               <p className="tool-eyebrow">A PRIVATE CANVAS</p>
               <p>The camera preview stays local until you start a live session. Decart then receives camera and microphone input with any selected reference image for realtime processing.</p>
-              <Link to="/#approach" className="studio-help-link">How it works <CircleHelp size={13} aria-hidden="true" /></Link>
+              <Link to="/#how-it-works" className="studio-help-link">How it works <CircleHelp size={13} aria-hidden="true" /></Link>
             </section>
           </div>
 

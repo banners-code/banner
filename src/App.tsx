@@ -4,6 +4,9 @@ import BrandMark from './components/BrandMark'
 import LandingPage from './pages/LandingPage'
 import AccountPage from './pages/AccountPage'
 import StudioPage from './pages/StudioPage'
+import SupportPage from './pages/SupportPage'
+import AdminSupportPage from './pages/AdminSupportPage'
+import UserDashboardPage from './pages/UserDashboardPage'
 
 function NotFound() {
   return (
@@ -23,7 +26,10 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/studio" element={<StudioPage />} />
+      <Route path="/dashboard" element={<UserDashboardPage />} />
       <Route path="/account" element={<AccountPage />} />
+      <Route path="/support" element={<SupportPage />} />
+      <Route path="/admin/support" element={<AdminSupportPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

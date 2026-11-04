@@ -40,6 +40,39 @@ export async function loadStudioLibrary(user: User) {
   return { preferences, directions }
 }
 
+export async function exportStudioData(user: User) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+  const preferenceResult = await supabase
+    .from('studio_preferences')
+    .select('prompt, aspect, preset_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (preferenceResult.error) throw preferenceResult.error
+
+  const pageSize = 500
+  const directions: SavedDirection[] = []
+  for (let from = 0; ; from += pageSize) {
+    const result = await supabase
+      .from('saved_directions')
+      .select('id, title, prompt, preset_id, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+    if (result.error) throw result.error
+    const page = (result.data || []) as SavedDirection[]
+    directions.push(...page)
+    if (page.length < pageSize) break
+  }
+
+  return {
+    formatVersion: 1,
+    exportedAt: new Date().toISOString(),
+    preferences: preferenceResult.data as StudioPreferences | null,
+    savedDirections: directions,
+  }
+}
+
 export async function saveStudioPreferences(user: User, preferences: StudioPreferences) {
   if (!supabase) throw new Error('Supabase is not configured.')
   const { error } = await supabase
@@ -79,4 +112,19 @@ export async function removeSavedDirection(user: User, id: string) {
     .eq('id', id)
 
   if (error) throw error
+}
+
+export async function deleteStudioData(user: User) {
+  if (!supabase) throw new Error('Supabase is not configured.')
+  const preferencesResult = await supabase
+    .from('studio_preferences')
+    .delete()
+    .eq('user_id', user.id)
+  if (preferencesResult.error) throw preferencesResult.error
+
+  const directionsResult = await supabase
+    .from('saved_directions')
+    .delete()
+    .eq('user_id', user.id)
+  if (directionsResult.error) throw directionsResult.error
 }

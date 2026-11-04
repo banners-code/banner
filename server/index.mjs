@@ -1,5 +1,6 @@
 import dotenv from 'dotenv'
 import express from 'express'
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,7 +13,7 @@ dotenv.config()
 
 const app = express()
 const isDevelopment = process.argv.includes('--dev')
-const port = Number(process.env.API_PORT || 8787)
+const port = Number(process.env.API_PORT || process.env.PORT || 8787)
 const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || 0)
 const distDir = path.resolve(rootDir, '../dist')
 const realtimeModel = 'lucy-2.6'
@@ -53,6 +54,26 @@ const supabaseAuthClient = supabaseUrl && supabasePublishableKey && isValidSupab
 
 app.disable('x-powered-by')
 if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops)
+app.use((request, response, next) => {
+  const startedAt = performance.now()
+  const requestId = randomUUID()
+  request.requestId = requestId
+  response.setHeader('X-Request-Id', requestId)
+  response.once('finish', () => {
+    if (request.path !== '/api' && !request.path.startsWith('/api/')) return
+    if (request.path === '/healthz' || request.path === '/readyz') return
+    console.log(JSON.stringify({
+      level: response.statusCode >= 500 ? 'error' : response.statusCode >= 400 ? 'warn' : 'info',
+      event: 'http_request',
+      requestId,
+      method: request.method,
+      path: request.path,
+      status: response.statusCode,
+      durationMs: Math.round(performance.now() - startedAt),
+    }))
+  })
+  next()
+})
 app.use((request, response, next) => {
   response.setHeader('X-Content-Type-Options', 'nosniff')
   response.setHeader('X-Frame-Options', 'DENY')
@@ -120,6 +141,12 @@ async function authenticateRequest(request) {
     const { data, error } = await supabaseAuthClient.auth.getUser(match[1])
     if (error) {
       const status = error.status === 400 || error.status === 401 || error.status === 403 ? 401 : 503
+      console.warn(JSON.stringify({
+        level: status === 401 ? 'warn' : 'error',
+        event: 'supabase_user_verification_failed',
+        requestId: request.requestId,
+        status,
+      }))
       return {
         status,
         message: status === 401 ? 'Your session has expired. Sign in again to continue.' : 'Account verification is temporarily unavailable.',
@@ -127,7 +154,13 @@ async function authenticateRequest(request) {
     }
     if (!data.user) return { status: 401, message: 'Sign in to start a live session.' }
     return { status: 200, userId: data.user.id }
-  } catch {
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: 'error',
+      event: 'supabase_user_verification_unavailable',
+      requestId: request.requestId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    }))
     return { status: 503, message: 'Account verification is temporarily unavailable.' }
   }
 }
@@ -191,6 +224,11 @@ app.post('/api/realtime-token', async (request, response) => {
     })
     response.status(200).json({ apiKey: token.apiKey, expiresAt: token.expiresAt })
   } catch {
+    console.error(JSON.stringify({
+      level: 'error',
+      event: 'decart_client_token_creation_failed',
+      requestId: response.getHeader('X-Request-Id'),
+    }))
     response.status(502).json({ error: 'Decart could not create a session token. Try again shortly.' })
   }
 })

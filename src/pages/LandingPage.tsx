@@ -2,13 +2,14 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Aperture, Focus, MoveUpRight, Spar
 import { Link } from 'react-router-dom'
 import BrandMark from '../components/BrandMark'
 import HeroArtwork from '../components/HeroArtwork'
+import { ContactSection, FAQSection, FeaturesSection } from '../components/MarketingSections'
 import SiteHeader from '../components/SiteHeader'
 import { studioPresets } from '../data/presets'
 
 const steps = [
-  { number: '01', title: 'Bring a live frame', copy: 'Preview your camera in a focused, browser-based workspace.' },
-  { number: '02', title: 'Set a direction', copy: 'Use a simple prompt or start from a considered visual preset.' },
-  { number: '03', title: 'Shape the moment', copy: 'Start an opt-in Decart session and explore the live transformation.' },
+  { number: '01', title: 'Preview your source', copy: 'Enable your camera, choose an available input, and check your framing locally in the browser.' },
+  { number: '02', title: 'Shape the direction', copy: 'Start with Photorealistic Human, refine the prompt, and add an optional image reference.' },
+  { number: '03', title: 'Go live when ready', copy: 'Sign in and start a Decart session. Adjust your direction as it runs, then stop when you are done.' },
 ]
 
 export default function LandingPage() {
@@ -27,7 +28,7 @@ export default function LandingPage() {
               <Link className="button button-primary" to="/studio">
                 Enter the Studio <ArrowUpRight size={16} aria-hidden="true" />
               </Link>
-              <a className="text-link" href="#approach">Discover the approach <ArrowDown size={14} aria-hidden="true" /></a>
+              <a className="text-link" href="#how-it-works">Discover how it works <ArrowDown size={14} aria-hidden="true" /></a>
             </div>
             <div className="hero-footnote"><span className="signal-dot" /> Local preview · Decart session is opt-in</div>
           </div>
@@ -59,13 +60,13 @@ export default function LandingPage() {
           <Link to="/studio" className="signal-strip-link">Open workspace <ArrowRight size={14} aria-hidden="true" /></Link>
         </section>
 
-        <section className="approach-section shell" id="approach">
+        <section className="approach-section shell" id="how-it-works">
           <div className="section-heading approach-heading">
             <div>
-              <p className="eyebrow">A CREATIVE INSTRUMENT</p>
-              <h2>Stay with the frame.<br /><em>Change its feeling.</em></h2>
+              <p className="eyebrow">HOW IT WORKS</p>
+              <h2>From camera to<br /><em>live direction.</em></h2>
             </div>
-            <p className="section-intro">Kinetelle gives live visual exploration a dedicated place: a clear canvas, a direct prompt, and enough control to keep your eye on the image.</p>
+            <p className="section-intro">The Studio keeps setup simple and lets you decide when to move from local preview to a live Decart session.</p>
           </div>
           <div className="approach-grid">
             {steps.map((step) => (
@@ -77,6 +78,8 @@ export default function LandingPage() {
             ))}
           </div>
         </section>
+
+        <FeaturesSection />
 
         <section className="looks-section shell" id="looks">
           <div className="section-heading looks-heading">
@@ -101,6 +104,10 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <FAQSection />
+
+        <ContactSection />
+
         <section className="statement-section shell">
           <div className="statement-symbol"><Sparkles size={20} aria-hidden="true" /></div>
           <p className="eyebrow">THE IDEA IS YOURS</p>
@@ -112,7 +119,7 @@ export default function LandingPage() {
 
       <footer className="site-footer shell">
         <BrandMark />
-        <p>Phase 3 workspace · Live sessions require an account and a server-side Decart key.</p>
+        <p>Camera preview stays local until you choose to start a live Decart session.</p>
         <span className="footer-copyright">© 2026 KINETELLE STUDIO</span>
       </footer>
     </div>
