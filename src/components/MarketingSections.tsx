@@ -2,6 +2,7 @@ import { ArrowUpRight, BookmarkCheck, Camera, ImagePlus, Mail, MessageCircle, Ra
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import type { HomepageSettings } from '../lib/homepageContent'
 import { loadPublicSupportSettings, removeSupportSubscription, subscribeToContactSettings, type SupportContactSettings } from '../lib/supportInbox'
 import { supabaseConfigured } from '../lib/supabase'
 
@@ -61,18 +62,21 @@ const questions = [
   },
 ]
 
-export function FeaturesSection() {
+export function FeaturesSection({ settings }: { settings?: HomepageSettings | null }) {
+  const cards = settings?.feature_cards?.length ? settings.feature_cards : features
   return (
     <section className="features-section shell" id="features" aria-labelledby="features-heading">
       <div className="section-heading features-heading">
         <div>
-          <p className="eyebrow">TOOLS FOR A LIVE FRAME</p>
-          <h2 id="features-heading">Thoughtful controls.<br /><em>Room to experiment.</em></h2>
+          <p className="eyebrow">{settings?.feature_eyebrow || 'TOOLS FOR A LIVE FRAME'}</p>
+          <h2 id="features-heading">{settings?.feature_heading_one || 'Thoughtful controls.'}<br /><em>{settings?.feature_heading_two || 'Room to experiment.'}</em></h2>
         </div>
-        <p className="section-intro">A camera source, a visual direction, and a clear choice about when your live session begins.</p>
+        <p className="section-intro">{settings?.feature_intro || 'A camera source, a visual direction, and a clear choice about when your live session begins.'}</p>
       </div>
       <div className="feature-grid">
-        {features.map(({ icon: Icon, title, copy }, index) => (
+        {cards.map(({ title, copy }, index) => {
+          const Icon = features[index % features.length].icon
+          return (
           <article className="feature-card" key={title}>
             <div className="feature-card-top">
               <span className="feature-card-icon"><Icon size={17} aria-hidden="true" /></span>
@@ -81,22 +85,24 @@ export function FeaturesSection() {
             <h3>{title}</h3>
             <p>{copy}</p>
           </article>
-        ))}
+          )
+        })}
       </div>
     </section>
   )
 }
 
-export function FAQSection() {
+export function FAQSection({ settings }: { settings?: HomepageSettings | null }) {
+  const items = settings?.faq_items?.length ? settings.faq_items : questions
   return (
     <section className="faq-section shell" id="faq" aria-labelledby="faq-heading">
       <div className="faq-intro">
-        <p className="eyebrow">CLEAR BEFORE YOU CREATE</p>
-        <h2 id="faq-heading">A few useful<br /><em>answers.</em></h2>
-        <p>Understand the camera preview, live processing, and saved directions before you begin.</p>
+        <p className="eyebrow">{settings?.faq_eyebrow || 'CLEAR BEFORE YOU CREATE'}</p>
+        <h2 id="faq-heading">{settings?.faq_heading_one || 'A few useful'}<br /><em>{settings?.faq_heading_two || 'answers.'}</em></h2>
+        <p>{settings?.faq_intro || 'Understand the camera preview, live processing, and saved directions before you begin.'}</p>
       </div>
       <div className="faq-list">
-        {questions.map(({ question, answer }) => (
+        {items.map(({ question, answer }) => (
           <details className="faq-item" key={question}>
             <summary>
               <span>{question}</span>

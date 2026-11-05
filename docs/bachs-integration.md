@@ -1,6 +1,6 @@
 # Bachs funding integration boundary
 
-The member dashboard includes a clickable Fund account control, but it does not start a payment until the merchant account and credit packs are configured. Keep the permanent Bachs API key and webhook signing secret on the Node server.
+The member dashboard currently supports admin-configured manual payment instructions and review. The automated Bachs flow described here is a separate future integration; it is not active. Keep the permanent Bachs API key and webhook signing secret on the Node server if that integration is added later.
 
 ## Documented flow
 

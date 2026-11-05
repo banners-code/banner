@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase, supabaseConfigured } from '../lib/supabase'
+import { LEGAL_DOCUMENT_VERSION } from '../lib/legal'
+
+type SignupConsent = {
+  acceptedTerms: boolean
+  confirmedOver18: boolean
+}
 
 type AuthContextValue = {
   user: User | null
@@ -8,7 +14,7 @@ type AuthContextValue = {
   configured: boolean
   passwordRecovery: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string) => Promise<boolean>
+  signUp: (email: string, password: string, consent: SignupConsent) => Promise<boolean>
   requestPasswordReset: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
   signOut: () => Promise<void>
@@ -61,12 +67,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
     },
-    async signUp(email, password) {
+    async signUp(email, password, consent) {
       if (!supabase) throw new Error('Supabase sign-up is not configured.')
+      if (!consent.acceptedTerms || !consent.confirmedOver18) {
+        throw new Error('Accept the Terms and confirm that you are 18 or older to create an account.')
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            kinetelle_terms_version: LEGAL_DOCUMENT_VERSION,
+            kinetelle_privacy_version: LEGAL_DOCUMENT_VERSION,
+            kinetelle_age_over_18: true,
+          },
+        },
       })
       if (error) throw error
       return !data.session

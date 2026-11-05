@@ -19,11 +19,14 @@ function errorCopy(error: unknown) {
 export default function AccountPage() {
   const { user, loading, configured, passwordRecovery, signIn, signUp, requestPasswordReset, updatePassword, signOut } = useAuth()
   const navigate = useNavigate()
-  const returnPath = '/dashboard'
+  const requestedReturnPath = new URLSearchParams(window.location.search).get('next')
+  const returnPath = requestedReturnPath?.startsWith('/') && !requestedReturnPath.startsWith('//') ? requestedReturnPath : '/dashboard'
   const [mode, setMode] = useState<AccountMode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [confirmedOver18, setConfirmedOver18] = useState(false)
   const [busy, setBusy] = useState(false)
   const [dataBusy, setDataBusy] = useState(false)
   const [error, setError] = useState('')
@@ -52,13 +55,18 @@ export default function AccountPage() {
       return
     }
 
+    if (mode === 'sign-up' && (!acceptedTerms || !confirmedOver18)) {
+      setError('Accept the Terms and confirm that you are 18 or older to create an account.')
+      return
+    }
+
     setBusy(true)
     try {
       if (mode === 'sign-in') {
         await signIn(email.trim(), password)
         navigate(returnPath, { replace: true })
       } else if (mode === 'sign-up') {
-        const confirmationRequired = await signUp(email.trim(), password)
+        const confirmationRequired = await signUp(email.trim(), password, { acceptedTerms, confirmedOver18 })
         if (confirmationRequired) {
           setMessage('Check your inbox to confirm your email. We will return you to your dashboard after confirmation.')
         } else {
@@ -87,6 +95,8 @@ export default function AccountPage() {
     setMessage('')
     setPassword('')
     setPasswordConfirmation('')
+    setAcceptedTerms(false)
+    setConfirmedOver18(false)
   }
 
   const downloadStudioData = async () => {
@@ -163,7 +173,7 @@ export default function AccountPage() {
             <h1 id="account-title">Welcome back.</h1>
             <p className="account-intro">Signed in as <strong>{user.email}</strong>. Your saved directions and Studio preferences are linked to this account.</p>
             <Link className="button button-primary account-submit" to={returnPath}>Open your dashboard <ArrowRight size={15} aria-hidden="true" /></Link>
-            <div className="account-support-links"><Link to="/support">Contact support</Link>{supportAdmin && <Link to="/admin/support">Open admin inbox</Link>}</div>
+            <div className="account-support-links"><Link to="/support">Contact support</Link>{supportAdmin && <Link to="/admin">Admin workspace</Link>}</div>
             <section className="account-data-card" aria-labelledby="account-data-title">
               <h2 id="account-data-title">Your Studio data</h2>
               <p>Export a copy of your saved directions and preferences, or remove them from this account.</p>
@@ -211,7 +221,21 @@ export default function AccountPage() {
                       <input id="account-password" name={mode === 'sign-in' ? 'current-password' : 'new-password'} autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'} type="password" minLength={8} maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} required />
                     </>
                   )}
-                  {mode === 'sign-up' && <p className="account-field-note">Use at least 8 characters. Email confirmation may be required.</p>}
+                  {mode === 'sign-up' && (
+                    <>
+                      <p className="account-field-note">Use at least 8 characters. Email confirmation may be required.</p>
+                      <div className="account-consent-group">
+                        <label className="account-consent-row" htmlFor="account-terms-consent">
+                          <input className="account-consent-control" id="account-terms-consent" name="terms-consent" type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} required />
+                          <span>I agree to the <Link to="/terms" target="_blank" rel="noreferrer">Terms of Service</Link> and acknowledge the <Link to="/privacy" target="_blank" rel="noreferrer">Privacy Policy</Link>.</span>
+                        </label>
+                        <label className="account-consent-row" htmlFor="account-age-consent">
+                          <input className="account-consent-control" id="account-age-consent" name="age-consent" type="checkbox" checked={confirmedOver18} onChange={(event) => setConfirmedOver18(event.target.checked)} required />
+                          <span>I confirm that I am at least 18 years old.</span>
+                        </label>
+                      </div>
+                    </>
+                  )}
                   {error && <p className="account-error" role="alert">{error}</p>}
                   {message && <p className="account-success" role="status"><CheckCircle2 size={15} aria-hidden="true" />{message}</p>}
                   <button className="button button-primary account-submit" type="submit" disabled={busy}>
@@ -222,6 +246,7 @@ export default function AccountPage() {
                 {mode === 'sign-in' && <button className="account-forgot" type="button" onClick={() => changeMode('request-reset')}>Forgot password?</button>}
                 {recoveryRequest && <button className="account-signout" type="button" onClick={() => changeMode('sign-in')}>Back to sign in</button>}
                 <p className="account-privacy">Your camera preview stays local until you explicitly start a live session.</p>
+                <p className="account-legal-links"><Link to="/terms">Terms of Service</Link><span aria-hidden="true">·</span><Link to="/privacy">Privacy Policy</Link></p>
               </>
             )}
           </>

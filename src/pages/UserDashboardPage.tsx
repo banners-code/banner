@@ -1,10 +1,11 @@
-import { Activity, ArrowLeft, ArrowRight, Camera, CircleHelp, Clock3, Coins, CreditCard, Inbox, LoaderCircle, LogOut, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowRight, Camera, CircleHelp, Clock3, CreditCard, Inbox, LoaderCircle, LogOut, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import BrandMark from '../components/BrandMark'
 import { loadLiveUsageSummary, type LiveUsageSession, type LiveUsageSummary } from '../lib/liveUsage'
 import { hasSupportAdminAccess } from '../lib/supportInbox'
+import ManualFundingPanel from '../features/funding/ManualFundingPanel'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -118,7 +119,7 @@ export default function UserDashboardPage() {
         <BrandMark />
         <div className="dashboard-header-actions">
           <Link to="/support" className="dashboard-quiet-link"><CircleHelp size={15} aria-hidden="true" /> Help</Link>
-          {supportAdmin && <Link to="/admin/support" className="dashboard-quiet-link"><Inbox size={15} aria-hidden="true" /> Admin inbox</Link>}
+          {supportAdmin && <Link to="/admin" className="dashboard-quiet-link"><Inbox size={15} aria-hidden="true" /> Admin</Link>}
           <Link to="/account" className="dashboard-user-pill"><span className="dashboard-avatar">{greeting.slice(0, 1).toUpperCase()}</span><span>{user.email}</span></Link>
           <button type="button" className="dashboard-signout" onClick={() => void signOutUser()} disabled={signingOut} aria-label="Sign out">
             {signingOut ? <LoaderCircle size={15} className="spin-icon" aria-hidden="true" /> : <LogOut size={15} aria-hidden="true" />}
@@ -175,11 +176,7 @@ export default function UserDashboardPage() {
         </div>
 
         {fundingExpanded && (
-          <section className="dashboard-funding-panel" id="dashboard-funding-panel" aria-label="Account funding">
-            <div className="dashboard-funding-icon"><Coins size={18} aria-hidden="true" /></div>
-            <div><p className="dashboard-panel-eyebrow">ACCOUNT FUNDING</p><h2>Live time is added here.</h2><p>Bachs uses a secure hosted checkout and a verified payment notification before credits are added. Checkout and credit packs are not connected to this account yet, so this control will not start a payment.</p></div>
-            <button className="icon-button" type="button" onClick={() => setFundingExpanded(false)} aria-label="Close funding details">×</button>
-          </section>
+          <ManualFundingPanel user={user} />
         )}
 
         <div className="dashboard-lower-grid">
@@ -219,7 +216,7 @@ export default function UserDashboardPage() {
             <h2>Built around your sessions.</h2>
             <p>Your camera stays in the browser until you start a live transformation. Studio activity is linked to this signed-in account.</p>
             <Link to="/account">Account settings <ArrowRight size={14} aria-hidden="true" /></Link>
-            {supportAdmin && <Link to="/admin/support">Open admin inbox <ArrowRight size={14} aria-hidden="true" /></Link>}
+            {supportAdmin && <Link to="/admin">Open admin workspace <ArrowRight size={14} aria-hidden="true" /></Link>}
           </aside>
         </div>
 

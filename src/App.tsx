@@ -7,6 +7,8 @@ import StudioPage from './pages/StudioPage'
 import SupportPage from './pages/SupportPage'
 import AdminSupportPage from './pages/AdminSupportPage'
 import UserDashboardPage from './pages/UserDashboardPage'
+import LegalPage from './pages/LegalPage'
+import AdminPortalPage from './pages/AdminPortalPage'
 
 function NotFound() {
   return (
@@ -30,6 +32,9 @@ export default function App() {
       <Route path="/account" element={<AccountPage />} />
       <Route path="/support" element={<SupportPage />} />
       <Route path="/admin/support" element={<AdminSupportPage />} />
+      <Route path="/admin" element={<AdminPortalPage />} />
+      <Route path="/terms" element={<LegalPage document="terms" />} />
+      <Route path="/privacy" element={<LegalPage document="privacy" />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

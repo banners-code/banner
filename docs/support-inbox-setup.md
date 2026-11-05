@@ -23,7 +23,7 @@ The query adds no row if that email has not registered in this Supabase project.
 ## Use the inbox
 
 - Customers sign in, open **Contact**, and start a conversation. New messages and admin replies appear in the same thread in real time.
-- Support admins open `/admin/support` to see the inbox, reply, close conversations, and edit the public contact details shown on the homepage.
+- Support admins open `/admin/support` to see the inbox, reply, close conversations, and edit the public contact details shown on the homepage. The main admin site editor and manual funding review live at `/admin`; see [admin-console-setup.md](admin-console-setup.md).
 - Keep the admin inbox open to receive its live in-app notification badge and new-message indicator. The admin can opt into browser notifications from the inbox; delivery requires the browser to allow notifications and the inbox page to remain open. Email and background push delivery are not configured.
 
 The one-time admin grant above is intentionally not embedded in a checked-in migration so a personal account address is not published in the repository.

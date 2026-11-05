@@ -16,6 +16,26 @@ vi.mock('../../lib/supabase', () => ({
   getCurrentAccessToken: vi.fn().mockResolvedValue('test-supabase-access-token'),
 }))
 
+vi.mock('../../lib/studioLibrary', () => ({
+  loadStudioLibrary: vi.fn().mockResolvedValue({ preferences: null, directions: [] }),
+  saveStudioPreferences: vi.fn().mockResolvedValue(undefined),
+  createSavedDirection: vi.fn(),
+  removeSavedDirection: vi.fn(),
+}))
+
+// Exercise our token-provider flow without opening the SDK's real WebRTC transport.
+vi.mock('@decartai/sdk', () => ({
+  models: { realtime: () => ({ fps: 30, width: 1280, height: 720 }) },
+  createDecartClient: ({ apiKeyProvider }: { apiKeyProvider: () => Promise<string> }) => ({
+    realtime: {
+      connect: async () => {
+        await apiKeyProvider()
+        throw new Error('Unexpected successful token response in failure-path test.')
+      },
+    },
+  }),
+}))
+
 const track = {
   stop: vi.fn(),
   getSettings: () => ({ deviceId: 'camera-one' }),
@@ -96,13 +116,14 @@ describe('Kinetelle Studio Phase 3 interactions', () => {
   it('offers only Photorealistic Human and keeps the output frame free of overlays', async () => {
     const user = userEvent.setup()
     renderStudio()
+    expect(screen.getByText('Waiting for output')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Enable camera' }))
     await screen.findByText('Camera is live')
 
     expect(screen.getByRole('button', { name: /Photorealistic Human/ })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText('1 DIRECTION')).toBeInTheDocument()
     expect(within(screen.getByRole('group', { name: 'Visual direction presets' })).getAllByRole('button')).toHaveLength(1)
-    expect(screen.getByText('Waiting for output')).toBeInTheDocument()
+    expect(screen.queryByText('Waiting for output')).not.toBeInTheDocument()
     expect(screen.queryByText('DEMO OUTPUT')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Preview this direction locally' }))
 
