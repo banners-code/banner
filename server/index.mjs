@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createDecartClient } from '@decartai/sdk'
 import { createClient } from '@supabase/supabase-js'
+import { checkLiveAccountAccess } from './accountAccess.mjs'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(rootDir, '../.env.local') })
@@ -20,6 +21,7 @@ const realtimeModel = 'lucy-2.6'
 const tokenRequestLimit = 8
 const tokenWindowMs = 60_000
 const tokenRequestWindows = new Map()
+const tokenActivity = { requests: 0, issued: 0, failures: 0 }
 
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error('API_PORT must be an integer between 1 and 65535.')
@@ -56,10 +58,16 @@ app.disable('x-powered-by')
 if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops)
 app.use((request, response, next) => {
   const startedAt = performance.now()
+  const tokenRequest = request.method === 'POST' && request.path === '/api/realtime-token'
+  if (tokenRequest) tokenActivity.requests += 1
   const requestId = randomUUID()
   request.requestId = requestId
   response.setHeader('X-Request-Id', requestId)
   response.once('finish', () => {
+    if (tokenRequest) {
+      if (response.statusCode === 200) tokenActivity.issued += 1
+      else if (response.statusCode >= 400) tokenActivity.failures += 1
+    }
     if (request.path !== '/api' && !request.path.startsWith('/api/')) return
     if (request.path === '/healthz' || request.path === '/readyz') return
     console.log(JSON.stringify({
@@ -153,7 +161,7 @@ async function authenticateRequest(request) {
       }
     }
     if (!data.user) return { status: 401, message: 'Sign in to start a live session.' }
-    return { status: 200, userId: data.user.id }
+    return { status: 200, userId: data.user.id, accessToken: match[1] }
   } catch (error) {
     console.error(JSON.stringify({
       level: 'error',
@@ -211,6 +219,15 @@ app.post('/api/realtime-token', async (request, response) => {
     response.status(account.status).json({ error: account.message })
     return
   }
+  const accountClient = createClient(supabaseUrl, supabasePublishableKey, {
+    global: { headers: { Authorization: `Bearer ${account.accessToken}` } },
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+  })
+  const access = await checkLiveAccountAccess(accountClient)
+  if (access.status !== 200) {
+    response.status(access.status).json({ error: access.message })
+    return
+  }
   if (!decartClient) {
     response.status(503).json({ error: 'Live sessions are not configured on this server.' })
     return
@@ -231,6 +248,21 @@ app.post('/api/realtime-token', async (request, response) => {
     }))
     response.status(502).json({ error: 'Decart could not create a session token. Try again shortly.' })
   }
+})
+
+app.get('/api/admin/status', async (request, response) => {
+  const account = await authenticateRequest(request)
+  if (account.status !== 200) { response.status(account.status).json({ error: account.message }); return }
+  try {
+    const client = createClient(supabaseUrl, supabasePublishableKey, {
+      global: { headers: { Authorization: `Bearer ${account.accessToken}` } },
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    })
+    const { data, error } = await client.rpc('is_support_admin')
+    if (error) { response.status(503).json({error:'Admin verification is unavailable.'}); return }
+    if (data !== true) { response.status(403).json({error:'Admin access required.'}); return }
+    response.json({ uptime_seconds: Math.floor(process.uptime()), decart_configured: Boolean(decartClient), account_verification: 'Connected', token_requests: tokenActivity.requests, tokens_issued: tokenActivity.issued, failed_requests: tokenActivity.failures, automatic_payments_ready: false })
+  } catch { response.status(503).json({error:'Admin status is temporarily unavailable.'}) }
 })
 
 app.use('/api', (request, response) => {

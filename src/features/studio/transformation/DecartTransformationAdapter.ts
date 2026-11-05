@@ -17,7 +17,7 @@ async function requestClientToken() {
   if (!response.ok) {
     if (response.status === 401) throw new Error(result?.error || 'Your account session expired. Sign in again to continue.')
     if (response.status === 503) throw new Error(result?.error || 'Live sessions are not configured on this server.')
-    if (response.status === 403) throw new Error('This site origin is not allowed to start a Decart session.')
+    if (response.status === 403) throw new Error(result?.error || 'This site origin or account is not allowed to start a Decart session.')
     if (response.status === 429) throw new Error('Too many session requests. Wait a moment and try again.')
     throw new Error(result?.error || 'A secure Decart session token could not be created.')
   }

@@ -5,10 +5,11 @@ import LandingPage from './pages/LandingPage'
 import AccountPage from './pages/AccountPage'
 import StudioPage from './pages/StudioPage'
 import SupportPage from './pages/SupportPage'
-import AdminSupportPage from './pages/AdminSupportPage'
 import UserDashboardPage from './pages/UserDashboardPage'
 import LegalPage from './pages/LegalPage'
 import AdminPortalPage from './pages/AdminPortalPage'
+import StudioAccessGate from './features/moderation/StudioAccessGate'
+import ReportPage from './pages/ReportPage'
 
 function NotFound() {
   return (
@@ -27,12 +28,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/studio" element={<StudioPage />} />
+      <Route path="/studio" element={<StudioAccessGate><StudioPage /></StudioAccessGate>} />
+      <Route path="/report" element={<ReportPage />} />
       <Route path="/dashboard" element={<UserDashboardPage />} />
       <Route path="/account" element={<AccountPage />} />
       <Route path="/support" element={<SupportPage />} />
-      <Route path="/admin/support" element={<AdminSupportPage />} />
-      <Route path="/admin" element={<AdminPortalPage />} />
+      <Route path="/admin/*" element={<AdminPortalPage />} />
       <Route path="/terms" element={<LegalPage document="terms" />} />
       <Route path="/privacy" element={<LegalPage document="privacy" />} />
       <Route path="*" element={<NotFound />} />

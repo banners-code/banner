@@ -6,6 +6,7 @@ import BrandMark from '../components/BrandMark'
 import { loadLiveUsageSummary, type LiveUsageSession, type LiveUsageSummary } from '../lib/liveUsage'
 import { hasSupportAdminAccess } from '../lib/supportInbox'
 import ManualFundingPanel from '../features/funding/ManualFundingPanel'
+import AccountAccessNotice from '../features/moderation/AccountAccessNotice'
 
 type LoadState = 'loading' | 'ready' | 'error'
 
@@ -135,6 +136,7 @@ export default function UserDashboardPage() {
         </div>
 
         {signOutError && <p className="dashboard-signout-error" role="alert">{signOutError}</p>}
+        <AccountAccessNotice userId={user.id} />
 
         <div className="dashboard-welcome">
           <div>
@@ -220,7 +222,7 @@ export default function UserDashboardPage() {
           </aside>
         </div>
 
-        <footer className="dashboard-footer"><span>KINETELLE STUDIO · MEMBER SPACE</span><span>Need a hand? <Link to="/support">Contact support</Link></span></footer>
+        <footer className="dashboard-footer"><span>KINETELLE STUDIO · MEMBER SPACE</span><Link to="/report">Report misuse</Link><span>Need a hand? <Link to="/support">Contact support</Link></span></footer>
       </section>
     </main>
   )

@@ -132,6 +132,7 @@ function PrivacyDocument() {
           <li><strong>Usage and account records:</strong> live-session start/end and heartbeat times, calculated duration, and any time-credit grants recorded for your account.</li>
           <li><strong>Manual funding requests:</strong> the amount and currency you report, payment reference, receipt image or PDF, optional note, review outcome, admin response, and live time granted after approval. Receipt files are stored in a private bucket.</li>
           <li><strong>Support messages:</strong> conversation subject, category, message text, account email, and replies.</li>
+          <li><strong>Safety reports and moderation:</strong> the account or content identifier reported, report details, review notes, account restriction status and reasons, expiry dates, and the administrator action history used to investigate concerns and handle appeals. Reports are visible to their author and admins; account-action reasons are visible to the affected member.</li>
           <li><strong>Public site content:</strong> administrators may upload images or videos for the public homepage. Uploaded homepage media is publicly accessible as site content.</li>
           <li><strong>Technical records:</strong> request route, method, status, request identifier, and processing duration for service diagnostics and security. The app's API logs do not include request bodies or access tokens. Hosting providers may keep their own network or access logs.</li>
         </ul>

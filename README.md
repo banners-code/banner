@@ -2,7 +2,11 @@
 
 **Kinetelle Studio** is the provisional working identity for a premium browser based live visual studio. The name and design direction are original project concepts; complete domain and trademark clearance before public launch.
 
-## Phase 8
+## Phase 9
+
+The admin workspace now opens on **Admin Dashboard**, with user/session/time metrics, currency-specific deposit totals, API configuration and token activity, support/report counts, and notifications. Its persistent sidebar groups **App Settings**, **Payment Settings**, and **Contact Settings** under Settings and becomes a drawer on mobile. **Manage Users** includes account activity, deposits, time history, and audited manual additions/removals with duplicate-request protection. Apply `20261105210000_admin_dashboard.sql` and `20261105211000_funding_review_audit.sql` after the moderation migration. Automatic payment products can be saved as admin-only drafts; activation stays blocked until checkout and verified webhooks are connected.
+
+Phase 9 adds **Users & safety** to `/admin`: account search, temporary suspension, bans, restoration, abuse report reviews, and immutable moderation audit entries. Members report misuse at `/report` and retain Support access for appeals. Apply `supabase/migrations/20261105200000_account_moderation.sql` before restarting the API server. The server checks moderation status before issuing each Decart token; the Studio also checks every 15 seconds and on browser focus. See [docs/admin-console-setup.md](docs/admin-console-setup.md) for enforcement boundaries.
 
 Phase 8 adds an admin workspace for homepage copy, workflow/features/FAQ sections, hero and demo image/video, manual payment instructions, and payment receipt review. Support contact settings and the support inbox remain available to the same designated admin role. Member funding requests are manual: customers submit an amount, reference, and private receipt; an admin verifies payment and enters the live minutes to grant. No payment provider or amount-to-time rate is assumed.
 
@@ -26,6 +30,8 @@ Signed-in members land on `/dashboard` after email/password sign-in or email con
 The **Fund account** control opens the manual payment panel when an admin has configured payment instructions. A member submits the amount they paid, payment reference, and a private receipt image or PDF. The admin verifies payment outside the app, then approves and enters the number of live minutes to grant. Rejections require an admin note. Time grants and request review are committed in one database function. Bachs checkout remains unconnected.
 
 ## Run locally
+
+For the full admin workspace, apply every migration listed in [the admin setup guide](docs/admin-console-setup.md), including reconciliation, moderation, dashboard, and funding-review audit migrations. The initial account setup migrations below are only the foundation.
 
 ```bash
 npm install
@@ -66,7 +72,9 @@ The Node server serves the production build and the same-origin token route. Pro
 
 The token route verifies the Supabase access token with Supabase Auth before creating a Decart client token. It applies a per-process, per-IP limit of eight requests per minute, checks the browser origin, restricts tokens to `lucy-2.6`, and scopes each token to the request origin. The rate limit is process-local, so a multi-instance deployment should use a shared limiter before increasing traffic. `/healthz` reports liveness; `/readyz` checks the production build, Decart/Supabase configuration, and exact HTTPS app origins. API request logs are JSON-formatted and omit query strings, headers, and provider error details.
 
-The homepage includes editable hero, workflow, feature, demo, FAQ, and closing content. Homepage edits update open pages through Supabase Realtime. Admins use `/admin` for content and payment review, and `/admin/support` for conversations and public contact details. Members can upload private payment receipts; admin review and time grants are handled from the manual funding panel. Email and push support alerts are not configured.
+The homepage includes editable hero, workflow, feature, demo, FAQ, and closing content. Homepage edits update open pages through Supabase Realtime. Admins use `/admin` for the dashboard, `/admin/settings/app` for site content, `/admin/settings/payments` for payment configuration, `/admin/settings/contact` for public contact details, `/admin/deposits` for receipt review, and `/admin/support` for conversations. In-page support updates and opt-in browser alerts are available while the admin inbox is open; background push and email delivery are not configured.
+
+API counters in the admin dashboard are process-local and reset on server restart. They report token issuance activity, not provider billing or account balance. Dashboard money totals remain separate by currency. Member time balances include manual adjustments; enforcing exhaustion of a running provider stream remains outside this update. See [admin setup and regression checks](docs/admin-console-setup.md) for all migrations and limits.
 
 ## Container deployment
 
@@ -122,7 +130,7 @@ The app-owned `TransformationAdapter` keeps the UI separate from provider calls.
 
 ```bash
 npm run dev       # Vite + token server for local development
-npm test          # Studio interaction tests
+npm test          # Studio, admin, and server tests
 npm run build     # TypeScript check and production build
 npm start         # Serve the production build and token route
 npm run preview   # Same production server after building

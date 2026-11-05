@@ -1,1 +1,1 @@
-export const LEGAL_DOCUMENT_VERSION = '2026-11-05-v2'
+export const LEGAL_DOCUMENT_VERSION = '2026-11-05-v3'

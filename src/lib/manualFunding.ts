@@ -1,9 +1,11 @@
 import type { RealtimeChannel, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { getAccountAccess } from './moderation'
 
 export type FundingSettings = {
   id: number
   enabled: boolean
+  payment_mode: 'off' | 'manual' | 'automatic'
   currency: string
   payment_instructions: string
   reference_instructions: string
@@ -40,7 +42,7 @@ export async function loadFundingSettings() {
   return data as FundingSettings
 }
 
-export async function saveFundingSettings(settings: Pick<FundingSettings, 'enabled' | 'currency' | 'payment_instructions' | 'reference_instructions' | 'minimum_amount'>) {
+export async function saveFundingSettings(settings: Pick<FundingSettings, 'enabled' | 'payment_mode' | 'currency' | 'payment_instructions' | 'reference_instructions' | 'minimum_amount'>) {
   const client = requireSupabase()
   const { data, error } = await client.from('funding_settings')
     .update({ ...settings, updated_at: new Date().toISOString() })
@@ -83,6 +85,7 @@ export async function createManualFundingRequest(input: {
 }) {
   const client = requireSupabase()
   const extension = proofExtension(input.proof)
+  if ((await getAccountAccess()).status !== 'active') throw new Error('Account funding is restricted. Contact Support to request a review.')
   if (!extension) throw new Error('Attach a JPG, PNG, WebP, or PDF payment receipt.')
   if (input.proof.size > 10 * 1024 * 1024) throw new Error('The payment receipt must be 10 MB or smaller.')
   if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Enter the amount you paid.')

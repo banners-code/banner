@@ -22,11 +22,12 @@ import { supabaseConfigured } from '../lib/supabase'
 
 type AdminPanel = 'inbox' | 'contact'
 
-export default function AdminSupportPage() {
+export default function AdminSupportPage({ embedded = false, activePanel }: { embedded?: boolean; activePanel?: AdminPanel } = {}) {
   const { user, loading: authLoading } = useAuth()
   const [adminAccess, setAdminAccess] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
-  const [panel, setPanel] = useState<AdminPanel>('inbox')
+  const [selectedPanel, setPanel] = useState<AdminPanel>('inbox')
+  const panel = activePanel ?? selectedPanel
   const [conversations, setConversations] = useState<SupportConversation[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [messages, setMessages] = useState<SupportMessage[]>([])
@@ -154,18 +155,19 @@ export default function AdminSupportPage() {
   }
 
   return (
-    <main className="admin-support-page">
-      <header className="support-header"><BrandMark /><Link to="/" className="studio-back-link"><ArrowLeft size={14} aria-hidden="true" /> Back to Kinetelle</Link></header>
-      <div className="admin-support-main">
-        <div className="admin-support-title"><div><p className="eyebrow">KINETELLE / ADMIN</p><h1>Support inbox.</h1></div><div className="admin-support-live-actions"><Link className="button button-outline admin-notification-button" to="/admin"><Settings2 size={14} aria-hidden="true" /> Site control</Link><span className="support-live-badge"><span /> Realtime updates</span><button className="button button-outline admin-notification-button" type="button" onClick={() => void enableBrowserNotifications()} disabled={browserNotifications === 'unsupported' || browserNotifications === 'denied'}><Bell size={14} aria-hidden="true" />{browserNotifications === 'granted' ? 'Browser alerts on' : browserNotifications === 'denied' ? 'Alerts blocked' : browserNotifications === 'unsupported' ? 'Alerts unavailable' : 'Enable browser alerts'}</button></div></div>
+    <section className={embedded ? "admin-support-embedded" : "admin-support-page"}>
+      {!embedded && <header className="support-header"><BrandMark /><Link to="/" className="studio-back-link"><ArrowLeft size={14} aria-hidden="true" /> Back to Kinetelle</Link></header>}
+      <div className={embedded ? "admin-support-embedded-main" : "admin-support-main"}>
+        {!embedded && <div className="admin-support-title"><div><p className="eyebrow">KINETELLE / ADMIN</p><h1>Support inbox.</h1></div><div className="admin-support-live-actions"><Link className="button button-outline admin-notification-button" to="/admin"><Settings2 size={14} aria-hidden="true" /> Site control</Link><span className="support-live-badge"><span /> Realtime updates</span><button className="button button-outline admin-notification-button" type="button" onClick={() => void enableBrowserNotifications()} disabled={browserNotifications === 'unsupported' || browserNotifications === 'denied'}><Bell size={14} aria-hidden="true" />{browserNotifications === 'granted' ? 'Browser alerts on' : browserNotifications === 'denied' ? 'Alerts blocked' : browserNotifications === 'unsupported' ? 'Alerts unavailable' : 'Enable browser alerts'}</button></div></div>}
         {loading || authLoading ? <p className="support-loading">Checking admin access…</p>
           : !user || !supabaseConfigured ? <section className="support-gate"><Inbox size={20} aria-hidden="true" /><h2>Sign in to continue</h2><p>The support inbox is available to designated Kinetelle administrators.</p><Link className="button button-primary" to="/account?next=%2Fadmin%2Fsupport">Sign in</Link></section>
             : !adminAccess ? <section className="support-gate"><Inbox size={20} aria-hidden="true" /><h2>Admin access isn’t enabled</h2><p>Grant your account the support admin role using the setup instructions, then sign in again.</p><Link className="text-link" to="/">Return to Kinetelle <ArrowLeft size={14} aria-hidden="true" /></Link></section>
               : <>
-                  <nav className="admin-support-tabs" aria-label="Support admin sections">
+                  {embedded && panel === 'inbox' && <div className="admin-support-live-actions"><span className="support-live-badge"><span /> Realtime updates</span><button className="button button-outline admin-notification-button" type="button" onClick={() => void enableBrowserNotifications()} disabled={browserNotifications === 'unsupported' || browserNotifications === 'denied'}><Bell size={14} aria-hidden="true" />{browserNotifications === 'granted' ? 'Browser alerts on' : browserNotifications === 'denied' ? 'Alerts blocked' : 'Enable browser alerts'}</button></div>}
+                  {!embedded && <nav className="admin-support-tabs" aria-label="Support admin sections">
                     <button className={panel === 'inbox' ? 'is-active' : ''} type="button" onClick={() => setPanel('inbox')}><Inbox size={15} aria-hidden="true" /> Inbox {newMessages > 0 && <span className="admin-notification-count">{newMessages}</span>}</button>
                     <button className={panel === 'contact' ? 'is-active' : ''} type="button" onClick={() => setPanel('contact')}><Settings2 size={15} aria-hidden="true" /> Public contact</button>
-                  </nav>
+                  </nav>}
                   {notice && <p className="support-live-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="Dismiss notification">×</button></p>}
                   {error && <p className="camera-error" role="alert">{error}</p>}
                   {panel === 'inbox' ? <div className="admin-inbox-layout">
@@ -177,7 +179,7 @@ export default function AdminSupportPage() {
                       {selectedConversation && user ? <><SupportThread conversation={selectedConversation} messages={messages} currentUserId={user.id} adminView busy={busy} onSend={sendReply} /><div className="support-admin-thread-actions"><span>Customer topic: {selectedConversation.category.replace('-', ' ')}</span><button className="button button-outline" type="button" disabled={busy} onClick={() => void toggleStatus(selectedConversation)}>{selectedConversation.status === 'open' ? 'Close conversation' : 'Reopen conversation'}</button></div></>
                         : <section className="support-empty-state"><Inbox size={21} aria-hidden="true" /><h2>No conversation selected</h2><p>Select a customer message to read and reply.</p></section>}
                     </div>
-                  </div> : settings && <section className="support-settings-panel"><div><p className="tool-eyebrow">SHOWN ON THE HOMEPAGE</p><h2>Contact details</h2><p>Edit these details to update the public Contact section immediately.</p></div><form onSubmit={(event) => void saveContactSettings(event)}>
+                  </div> : settings && <section className="support-settings-panel"><div><p className="tool-eyebrow">SHOWN ON THE HOMEPAGE</p><h2>Contact details</h2><p>Edit these details to update the public Contact section immediately.</p><Link className="text-link" to="/admin/support">Open support inbox</Link></div><form onSubmit={(event) => void saveContactSettings(event)}>
                     <label htmlFor="support-welcome">Welcome message</label><textarea id="support-welcome" rows={3} maxLength={500} value={settings.welcome_message} onChange={(event) => setSettings({ ...settings, welcome_message: event.target.value })} required />
                     <label htmlFor="support-contact-email">Public support email</label><input id="support-contact-email" type="email" maxLength={254} value={settings.contact_email} onChange={(event) => setSettings({ ...settings, contact_email: event.target.value })} placeholder="Leave blank to hide an email address" />
                     <label htmlFor="support-contact-url">Public contact link</label><input id="support-contact-url" type="url" maxLength={500} value={settings.contact_url} onChange={(event) => setSettings({ ...settings, contact_url: event.target.value })} placeholder="https://…" />
@@ -187,6 +189,6 @@ export default function AdminSupportPage() {
                   </form></section>}
                 </>}
       </div>
-    </main>
+    </section>
   )
 }

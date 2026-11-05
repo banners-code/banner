@@ -26,7 +26,7 @@ const categoryLabels: Record<SupportCategory, string> = {
   'live-session': 'Live Decart session',
   technical: 'Technical issue',
   feedback: 'Feedback or idea',
-  other: 'Other',
+  other: 'Other / account appeal',
 }
 
 export default function SupportPage() {

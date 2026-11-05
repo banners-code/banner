@@ -1,5 +1,6 @@
 import { Check, ExternalLink, LoaderCircle, RefreshCw, Save, ShieldAlert, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
   createFundingProofUrl,
   loadAllFundingRequests,
@@ -26,11 +27,13 @@ export default function FundingManager({
   initialRequests,
   onSettingsSaved,
   onRequestsChanged,
+  view = 'all',
 }: {
   initialSettings: FundingSettings
   initialRequests: ManualFundingRequest[]
   onSettingsSaved: (settings: FundingSettings) => void
   onRequestsChanged: (requests: ManualFundingRequest[]) => void
+  view?: 'all' | 'settings' | 'queue'
 }) {
   const [settings, setSettings] = useState(initialSettings)
   const [requests, setRequests] = useState(initialRequests)
@@ -84,6 +87,7 @@ export default function FundingManager({
     try {
       const saved = await saveFundingSettings({
         enabled: settings.enabled,
+        payment_mode: settings.payment_mode || (settings.enabled ? 'manual' : 'off'),
         currency: normalizedCurrency,
         payment_instructions: settings.payment_instructions.trim(),
         reference_instructions: settings.reference_instructions.trim(),
@@ -131,10 +135,13 @@ export default function FundingManager({
 
   return (
     <div className="admin-funding-grid">
-      <section className="admin-card admin-funding-settings-card">
-        <div className="admin-card-heading"><div><p className="tool-eyebrow">MEMBER DASHBOARD</p><h2>Manual payment details</h2><p>Set the instructions customers see before they upload a receipt. There is no automatic payment verification or credit conversion.</p></div></div>
+      {view === 'queue' && error && <p className="account-error" role="alert">{error}</p>}
+      {view === 'queue' && notice && <p className="account-success" role="status">{notice}</p>}
+      {view !== 'queue' && <section className="admin-card admin-funding-settings-card">
+        <div className="admin-card-heading"><div><p className="tool-eyebrow">MEMBER DASHBOARD</p><h2>Manual payment details</h2><p>Set the instructions customers see before they upload a receipt. There is no automatic payment verification or credit conversion.</p></div><Link className="button button-outline" to="/admin/deposits">Review deposits</Link></div>
         <form className="admin-editor-form admin-compact-form" onSubmit={(event) => void saveSettings(event)}>
-          <label className="support-chat-toggle admin-funding-enabled"><input type="checkbox" checked={settings.enabled} onChange={(event) => setSettings({ ...settings, enabled: event.target.checked })} /><span>Accept manual funding requests</span></label>
+          <label className="admin-field-label admin-payment-mode">Active payment mode<select value={settings.payment_mode || (settings.enabled ? 'manual' : 'off')} onChange={event => { const mode=event.target.value as FundingSettings['payment_mode']; setSettings({...settings,payment_mode:mode,enabled:mode==='manual'}) }}><option value="off">Payments paused</option><option value="manual">Manual payments</option><option value="automatic" disabled>Automatic payments — integration required</option></select></label>
+          <p className="admin-field-help">Manual mode shows your payment instructions to members. Pausing stops new submissions while existing requests remain available for review.</p>
           <div className="admin-field-grid">
             <label className="admin-field-label">Currency code <input value={settings.currency} onChange={(event) => setSettings({ ...settings, currency: event.target.value.toUpperCase() })} maxLength={3} placeholder="NGN, USD, GHS…" /></label>
             <label className="admin-field-label">Minimum payment amount <input type="number" min="0" step="0.01" value={settings.minimum_amount || ''} onChange={(event) => setSettings({ ...settings, minimum_amount: Number(event.target.value) || 0 })} placeholder="No minimum" /></label>
@@ -145,9 +152,9 @@ export default function FundingManager({
           {notice && <p className="account-success" role="status">{notice}</p>}
           <button className="button button-primary admin-save-button" type="submit" disabled={busy}>{busy ? <LoaderCircle size={15} className="spin-icon" aria-hidden="true" /> : <Save size={15} aria-hidden="true" />}{busy ? 'Saving…' : 'Save payment settings'}</button>
         </form>
-      </section>
+      </section>}
 
-      <section className="admin-card admin-funding-queue-card">
+      {view !== 'settings' && <section className="admin-card admin-funding-queue-card">
         <div className="admin-card-heading admin-queue-heading">
           <div><p className="tool-eyebrow">MANUAL REVIEW</p><h2>Payment requests</h2><p>Verify the payment yourself before approving. Approved requests grant the live time you enter below.</p></div>
           <button className="icon-button" type="button" onClick={() => void refreshRequests().catch((cause) => setError(cause instanceof Error ? cause.message : 'Payment requests could not be refreshed.'))} aria-label="Refresh payment requests"><RefreshCw size={15} aria-hidden="true" /></button>
@@ -177,7 +184,7 @@ export default function FundingManager({
           </div>
         </div>
         <p className="admin-funding-security"><ShieldAlert size={14} aria-hidden="true" /> Receipt files are private. Only the submitting member and designated admins can access them.</p>
-      </section>
+      </section>}
     </div>
   )
 }
