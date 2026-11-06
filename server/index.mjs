@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 import { createDecartClient } from '@decartai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { checkLiveAccountAccess } from './accountAccess.mjs'
+import { createLiveTimeService, createSignalingStore } from './liveTime.mjs'
+import { attachRealtimeProxy } from './realtimeProxy.mjs'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(rootDir, '../.env.local') })
@@ -54,11 +56,18 @@ const supabaseAuthClient = supabaseUrl && supabasePublishableKey && isValidSupab
     })
   : null
 
+// This key never enters the Vite bundle and never receives a user's JWT header.
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+const accountingClient = supabaseSecretKey && supabaseUrl && isValidSupabaseUrl(supabaseUrl)
+  ? createClient(supabaseUrl, supabaseSecretKey, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } })
+  : null
+const liveTimeService = createLiveTimeService({ client: accountingClient })
+
 app.disable('x-powered-by')
 if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops)
 app.use((request, response, next) => {
   const startedAt = performance.now()
-  const tokenRequest = request.method === 'POST' && request.path === '/api/realtime-token'
+  const tokenRequest = request.method === 'POST' && request.path === '/api/connection-ticket'
   if (tokenRequest) tokenActivity.requests += 1
   const requestId = randomUUID()
   request.requestId = requestId
@@ -82,6 +91,7 @@ app.use((request, response, next) => {
   })
   next()
 })
+app.use('/api', express.json({ limit: '4kb' }))
 app.use((request, response, next) => {
   response.setHeader('X-Content-Type-Options', 'nosniff')
   response.setHeader('X-Frame-Options', 'DENY')
@@ -125,7 +135,7 @@ function originIsAllowed(requestOrigin) {
 
 function productionConfigIsReady() {
   if (isDevelopment) return true
-  if (!existsSync(path.join(distDir, 'index.html')) || !decartClient || !supabaseAuthClient) return false
+  if (!existsSync(path.join(distDir, 'index.html')) || !decartClient || !supabaseAuthClient || !accountingClient) return false
   if (!supabaseUrl || new URL(supabaseUrl).protocol !== 'https:') return false
 
   const configuredOrigins = (process.env.APP_ORIGINS || '')
@@ -203,7 +213,8 @@ function takeTokenRequestSlot(request, response) {
   return true
 }
 
-app.post('/api/realtime-token', async (request, response) => {
+app.post('/api/realtime-token', (_request,response) => response.status(410).json({error:'Reload the Studio to use server-controlled connections.'}))
+app.post('/api/connection-ticket', async (request, response) => {
   if (!originIsAllowed(request.get('origin'))) {
     response.status(403).json({ error: 'This site origin is not allowed to start a Decart session.' })
     return
@@ -233,22 +244,22 @@ app.post('/api/realtime-token', async (request, response) => {
     return
   }
 
-  try {
-    const token = await decartClient.tokens.create({
-      expiresIn: 300,
-      allowedModels: [realtimeModel],
-      allowedOrigins: [canonicalOrigin(request.get('origin'))],
-    })
-    response.status(200).json({ apiKey: token.apiKey, expiresAt: token.expiresAt })
-  } catch {
-    console.error(JSON.stringify({
-      level: 'error',
-      event: 'decart_client_token_creation_failed',
-      requestId: response.getHeader('X-Request-Id'),
-    }))
-    response.status(502).json({ error: 'Decart could not create a session token. Try again shortly.' })
-  }
+  const result = await liveTimeService.ticket(account.userId, request.body?.sessionId)
+  response.status(result.status).json(result.body)
 })
+
+async function liveSessionRoute(request, response, action) {
+  if (!originIsAllowed(request.get('origin'))) { response.status(403).json({ error: 'This site origin is not allowed.' }); return }
+  const account = await authenticateRequest(request)
+  if (account.status !== 200) { response.status(account.status).json({ error: account.message }); return }
+  if (action === 'reserve' && !decartClient) { response.status(503).json({ error: 'Live sessions are not configured on this server.' }); return }
+  const result = await liveTimeService.update(account.userId, request.params.id || request.body?.requestId, action)
+  if (action==='stop' && result.status===200) signalingProxy.closeLease(account.userId,request.params.id)
+  response.status(result.status).json(result.body)
+}
+app.post('/api/live-sessions', (request, response) => liveSessionRoute(request, response, 'reserve'))
+app.post('/api/live-sessions/:id/heartbeat', (request, response) => liveSessionRoute(request, response, 'heartbeat'))
+app.post('/api/live-sessions/:id/stop', (request, response) => liveSessionRoute(request, response, 'stop'))
 
 app.get('/api/admin/status', async (request, response) => {
   const account = await authenticateRequest(request)
@@ -261,7 +272,7 @@ app.get('/api/admin/status', async (request, response) => {
     const { data, error } = await client.rpc('is_support_admin')
     if (error) { response.status(503).json({error:'Admin verification is unavailable.'}); return }
     if (data !== true) { response.status(403).json({error:'Admin access required.'}); return }
-    response.json({ uptime_seconds: Math.floor(process.uptime()), decart_configured: Boolean(decartClient), account_verification: 'Connected', token_requests: tokenActivity.requests, tokens_issued: tokenActivity.issued, failed_requests: tokenActivity.failures, automatic_payments_ready: false })
+    response.json({ uptime_seconds: Math.floor(process.uptime()), decart_configured: Boolean(decartClient), live_time_configured: Boolean(accountingClient), server_signaling: true, proxy_connections: signalingProxy.activeConnections, account_verification: 'Connected', token_requests: tokenActivity.requests, tokens_issued: tokenActivity.issued, failed_requests: tokenActivity.failures, automatic_payments_ready: false })
   } catch { response.status(503).json({error:'Admin status is temporarily unavailable.'}) }
 })
 
@@ -298,9 +309,14 @@ const server = app.listen(port, '0.0.0.0', () => {
   const mode = isDevelopment ? 'API' : 'application and API'
   console.log(`Kinetelle ${mode} server listening on http://localhost:${port}`)
 })
+const signalingProxy = attachRealtimeProxy(server, {
+  store:createSignalingStore(accountingClient), decartClient, model:realtimeModel,
+  originIsAllowed, ready:Boolean(accountingClient),
+})
 
 function shutdown(signal) {
   console.log(`Kinetelle server received ${signal}; closing gracefully.`)
+  void signalingProxy.shutdown()
   server.close((error) => {
     if (error) {
       console.error('Kinetelle server shutdown failed.', error)

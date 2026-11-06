@@ -7,7 +7,12 @@ export type TransformationDirection = {
   referenceImage: File | null
 }
 
-export type TransformationConnectionState = 'connecting' | 'connected' | 'generating' | 'reconnecting' | 'disconnected'
+export type TransformationConnectionState =
+  | 'connecting'
+  | 'connected'
+  | 'generating'
+  | 'reconnecting'
+  | 'disconnected'
 
 export type TransformationEvents = {
   onOutputStream: (stream: MediaStream) => void
@@ -23,5 +28,10 @@ export type TransformationSession = {
 }
 
 export interface TransformationAdapter {
-  connect(source: MediaStream, direction: TransformationDirection, events: TransformationEvents): Promise<TransformationSession>
+  connect(
+    source: MediaStream,
+    direction: TransformationDirection,
+    events: TransformationEvents,
+    authorization: { requestToken(): Promise<string> },
+  ): Promise<TransformationSession>
 }

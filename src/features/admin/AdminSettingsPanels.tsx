@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import HomepageEditor from './HomepageEditor'
 import FundingManager from './FundingManager'
 import AutomaticPaymentSetup from './AutomaticPaymentSetup'
+import PricingSettings from './PricingSettings'
 import {
   loadHomepageSettings,
   subscribeToHomepageSettings,
@@ -78,6 +79,7 @@ export function FundingPanel({ view }: { view: 'settings' | 'queue' }) {
   }, [view])
   return (
     <>
+      {view === 'settings' && <PricingSettings fundingSettings={settings} />}
       {error && (
         <p role="alert" className="account-error">
           {error}

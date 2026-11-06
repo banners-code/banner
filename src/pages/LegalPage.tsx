@@ -139,7 +139,7 @@ function PrivacyDocument() {
       </section>
       <section>
         <h2>3. Camera, microphone, and reference images</h2>
-        <p>Your camera preview stays in your browser until you choose to start a live transformation. When you start one, the browser sends the active camera and microphone stream, plus any reference image you selected, to Decart for processing. Kinetelle's application server issues a short-lived connection token; it does not receive or store the raw stream. Kinetelle does not save raw camera, microphone, or reference-image files in its Supabase database.</p>
+        <p>Your camera preview stays in your browser until you choose to start a live transformation. When you start one, the browser sends the active camera and microphone stream directly to Decart for processing. Kinetelle's application server relays connection controls, your prompt, and any selected reference image to Decart, and records connection timing and provider usage events. It does not receive the raw camera or microphone stream, or save reference-image payloads. Kinetelle does not save raw camera, microphone, or reference-image files in its Supabase database.</p>
         <p>Decart receives the media you choose to send and handles it under its own applicable terms and privacy policy. Review <a href="https://decart.ai/privacy-policy" target="_blank" rel="noreferrer">Decart's Privacy Policy</a> and <a href="https://decart.ai/terms" target="_blank" rel="noreferrer">Terms of Use</a> before going live. Provider processing and retention are outside Kinetelle's control.</p>
       </section>
       <section>

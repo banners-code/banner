@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthProvider'
 import BrandMark from '../components/BrandMark'
 import { loadLiveUsageSummary, type LiveUsageSession, type LiveUsageSummary } from '../lib/liveUsage'
 import { hasSupportAdminAccess } from '../lib/supportInbox'
-import ManualFundingPanel from '../features/funding/ManualFundingPanel'
+import BuyTimeDialog from '../features/funding/BuyTimeDialog'
 import AccountAccessNotice from '../features/moderation/AccountAccessNotice'
 
 type LoadState = 'loading' | 'ready' | 'error'
@@ -21,10 +21,7 @@ function formatDuration(seconds: number) {
 }
 
 function formatAvailableTime(seconds: number) {
-  const totalMinutes = Math.floor(Math.max(0, seconds) / 60)
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return hours > 0 ? `${hours}h ${String(minutes).padStart(2, '0')}m` : `${totalMinutes}m`
+  return formatDuration(seconds)
 }
 
 function sessionDuration(session: LiveUsageSession) {
@@ -161,7 +158,7 @@ export default function UserDashboardPage() {
             <p className="dashboard-metric-value">{loadState === 'ready' && summary ? formatAvailableTime(remainingSeconds) : '—'}</p>
             <p className="dashboard-metric-foot">Available for Decart live sessions</p>
             <div className="dashboard-time-track" aria-hidden="true"><span style={{ width: `${summary && summary.credited_seconds > 0 ? Math.max(0, Math.min(100, (remainingSeconds / summary.credited_seconds) * 100)) : 0}%` }} /></div>
-            <button className="button button-primary dashboard-fund-button" type="button" aria-expanded={fundingExpanded} aria-controls="dashboard-funding-panel" onClick={() => setFundingExpanded((expanded) => !expanded)}><CreditCard size={15} aria-hidden="true" /> Fund account <ArrowRight size={14} aria-hidden="true" /></button>
+            <button className="button button-primary dashboard-fund-button" type="button" aria-haspopup="dialog" onClick={() => setFundingExpanded(true)}><CreditCard size={15} aria-hidden="true" /> Buy AI Time <ArrowRight size={14} aria-hidden="true" /></button>
           </article>
 
           <article className="dashboard-metric">
@@ -177,8 +174,11 @@ export default function UserDashboardPage() {
           </article>
         </div>
 
+        {!!summary?.expiring_credits?.length && <div className="dashboard-credit-expiry" aria-label="Purchased time validity"><Clock3 size={15}/><div><strong>Use your earliest-expiring time first.</strong>{summary.expiring_credits.map((lot,index)=><span key={index}>{formatDuration(lot.remaining_seconds)} remaining · expires {formatSessionDate(lot.expires_at)}</span>)}</div></div>}
+        {!!summary?.expired_seconds && <p className="dashboard-expired-note">{formatDuration(summary.expired_seconds)} of unused purchased time has expired. Your available balance already accounts for this.</p>}
+
         {fundingExpanded && (
-          <ManualFundingPanel user={user} />
+          <BuyTimeDialog user={user} onClose={()=>{setFundingExpanded(false);void loadLiveUsageSummary().then(setSummary).catch(()=>undefined)}}/>
         )}
 
         <div className="dashboard-lower-grid">

@@ -7,8 +7,10 @@ export type LiveUsageSession = {
   active: boolean
   duration_seconds: number
 }
-
 export type LiveUsageSummary = {
+  lifetime_credited_seconds?: number
+  expired_seconds?: number
+  expiring_credits?: { remaining_seconds: number; expires_at: string }[]
   credited_seconds: number
   spent_seconds: number
   session_count: number
@@ -31,6 +33,22 @@ export async function loadLiveUsageSummary(): Promise<LiveUsageSummary> {
   }
 
   return {
+    lifetime_credited_seconds:
+      Number(summary.lifetime_credited_seconds ?? summary.credited_seconds) ||
+      0,
+    expired_seconds: Number(summary.expired_seconds) || 0,
+    expiring_credits: Array.isArray(summary.expiring_credits)
+      ? summary.expiring_credits
+          .map((lot) => ({
+            remaining_seconds: Number(lot.remaining_seconds) || 0,
+            expires_at: String(lot.expires_at),
+          }))
+          .filter(
+            (lot) =>
+              lot.remaining_seconds > 0 &&
+              Number.isFinite(new Date(lot.expires_at).getTime()),
+          )
+      : [],
     credited_seconds: Number(summary.credited_seconds) || 0,
     spent_seconds: Number(summary.spent_seconds) || 0,
     session_count: Number(summary.session_count) || 0,
@@ -42,24 +60,4 @@ export async function loadLiveUsageSummary(): Promise<LiveUsageSummary> {
       duration_seconds: Number(session.duration_seconds) || 0,
     })),
   }
-}
-
-export async function startLiveUsageSession() {
-  const client = requireSupabase()
-  const { data, error } = await client.rpc('start_live_usage_session')
-  if (error) throw error
-  if (typeof data !== 'string') throw new Error('The live usage session could not be started.')
-  return data
-}
-
-export async function touchLiveUsageSession(sessionId: string) {
-  const client = requireSupabase()
-  const { error } = await client.rpc('touch_live_usage_session', { p_session_id: sessionId })
-  if (error) throw error
-}
-
-export async function stopLiveUsageSession(sessionId: string) {
-  const client = requireSupabase()
-  const { error } = await client.rpc('stop_live_usage_session', { p_session_id: sessionId })
-  if (error) throw error
 }

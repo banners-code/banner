@@ -32,6 +32,7 @@ export default function useCameraInput() {
   const [message, setMessage] = useState<string | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const mountedRef = useRef(false)
+  const requestGeneration = useRef(0)
 
   const refreshDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) {
@@ -50,6 +51,7 @@ export default function useCameraInput() {
   }, [])
 
   const startCamera = useCallback(async (deviceId?: string, format?: CameraFormat, includeAudio = false) => {
+    const generation = ++requestGeneration.current
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus('unsupported')
       setMessage('Camera access needs a supported browser on HTTPS or localhost.')
@@ -68,7 +70,7 @@ export default function useCameraInput() {
         ...format,
       }
       const nextStream = await navigator.mediaDevices.getUserMedia({ video, audio: includeAudio })
-      if (!mountedRef.current) {
+      if (!mountedRef.current || generation !== requestGeneration.current) {
         nextStream.getTracks().forEach((track) => track.stop())
         return null
       }
@@ -81,7 +83,7 @@ export default function useCameraInput() {
       if (mountedRef.current) setSelectedDeviceId(nextDeviceId)
       return nextStream
     } catch (error) {
-      if (!mountedRef.current) return null
+      if (!mountedRef.current || generation !== requestGeneration.current) return null
       const denied = error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError')
       setStatus(denied ? 'denied' : error instanceof DOMException && error.name === 'NotFoundError' ? 'unsupported' : 'error')
       setMessage(getCameraError(error, includeAudio))
@@ -91,6 +93,7 @@ export default function useCameraInput() {
   }, [refreshDevices])
 
   const stopCamera = useCallback(() => {
+    requestGeneration.current += 1
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
     setStream(null)
@@ -106,6 +109,7 @@ export default function useCameraInput() {
     mediaDevices?.addEventListener?.('devicechange', handleDeviceChange)
     return () => {
       mountedRef.current = false
+      requestGeneration.current += 1
       mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange)
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null

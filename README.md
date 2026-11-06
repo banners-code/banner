@@ -2,6 +2,26 @@
 
 **Kinetelle Studio** is the provisional working identity for a premium browser based live visual studio. The name and design direction are original project concepts; complete domain and trademark clearance before public launch.
 
+## Customer pricing and time-pack validity
+
+**Admin → Settings → Payment Settings** now controls selling price, private cost estimates, editable packs, publication and validity. The saved draft is **USD $2/minute**, with **5 minutes for $10 / 3 days**, **10 minutes for $20 / 14 days**, and **20 minutes for $40 / 14 days**. Validity begins on payment approval. Existing grants remain non-expiring; unused purchased time expires and the server consumes the soonest-expiring time first.
+
+Apply `20261106020000_customer_pricing.sql`, `20261106021000_credit_expiry.sql`, then `20261106022000_payment_experience.sql` after Phase 11. **Fund account** and **Buy AI time** open the shared purchase dialog from the dashboard and Studio. Manual payment uses an editable admin rate, initially **1 USD = 1,380 NGN**: the packs cost **₦13,800 / ₦27,600 / ₦55,200**. Quotes lock the listed price, transferred amount, exchange rate and bank instructions for 24 hours. Members can resume an unfinished quote, copy payment details, preview/remove a receipt and follow its review status. Pricing stays unpublished initially. Bachs automatic checkout remains inactive. See [pricing setup and verification](docs/pricing-and-expiry.md) and [the payment-flow review](docs/payment-flow-review.md).
+
+## Phase 11
+
+Realtime signaling now passes through the Node server. The browser receives a single-use app ticket valid for 15 seconds; Decart credentials remain on the server. A database connection fence prevents parallel provider connections for the same session across server instances. The proxy checks time/account status, observes provider usage events, and closes the upstream socket on expiry, Stop, or failed verification. Camera/microphone media still flows directly to Decart; prompts and reference images pass through the proxy without being stored.
+
+Apply `supabase/migrations/20261106010000_server_signaling.sql` after Phase 10, then deploy the matching server and frontend together. This also fixes the moderation insert trigger for server-only accounting calls that have no user JWT. The old `/api/realtime-token` endpoint now returns 410. The VPS reverse proxy must support WebSocket upgrades at `/api/realtime/`. See [session control, recovery, and verification](docs/live-time-enforcement.md).
+
+The live-provider check currently stops at Decart's **Insufficient credits** response. Local socket tests and database checks cover replay, reconnection fences, cutoff, and settlement; real provider reconnect/cutoff and transformed-media verification remain pending provider funding. Automatic payments remain disabled.
+
+## Phase 10 (foundation)
+
+Live sessions now require server-side live-time authorization before any Decart token is issued. A database lock and unique active-authorization constraint prevent competing app sessions across tabs/server instances. Reconnects reuse the same allowance. The Studio shows remaining session time, warns below one minute, and disconnects/stops media at expiry or when accounting verification fails. Local previews remain free.
+
+Apply `supabase/migrations/20261106000000_live_time_enforcement.sql` after the admin migrations, and provide `SUPABASE_SECRET_KEY` only to the Node server (`SUPABASE_SERVICE_ROLE_KEY` is accepted for legacy projects). The old browser-writable accounting RPCs are revoked. Deploy the migration, server, and frontend together. See [live-time enforcement and limitations](docs/live-time-enforcement.md) for accounting rules, verification, and direct-provider enforcement boundaries.
+
 ## Phase 9
 
 The admin workspace now opens on **Admin Dashboard**, with user/session/time metrics, currency-specific deposit totals, API configuration and token activity, support/report counts, and notifications. Its persistent sidebar groups **App Settings**, **Payment Settings**, and **Contact Settings** under Settings and becomes a drawer on mobile. **Manage Users** includes account activity, deposits, time history, and audited manual additions/removals with duplicate-request protection. Apply `20261105210000_admin_dashboard.sql` and `20261105211000_funding_review_audit.sql` after the moderation migration. Automatic payment products can be saved as admin-only drafts; activation stays blocked until checkout and verified webhooks are connected.
@@ -17,9 +37,9 @@ The legal pages are an implementation draft that describes the current app and p
 - A local camera preview works without a Decart key. **Preview this direction locally** applies a CSS study and keeps media in the browser.
 - **Start live transformation** is the explicit point at which an authenticated user's camera, microphone and selected reference image are sent to Decart.
 - The canvas toolbar identifies a local demo output and changes to **AI Output Live** only after the SDK delivers a transformed remote stream; the output frame itself stays clear.
-- The permanent Decart key stays in the Node server. The browser requests a short lived client token immediately before connecting and on reconnects.
+- The permanent and ephemeral Decart keys stay in the Node server. The browser requests a single-use Kinetelle connection ticket immediately before connecting and on reconnects.
 - Saved directions contain only the prompt and preset identifier. Studio preferences contain the prompt, preset identifier, and aspect ratio. Camera frames and reference image files are not stored in Supabase.
-- The member dashboard tracks live time and session history. Manual payment review can be enabled by an admin; Bachs checkout is not connected and there are no assumed prices or time conversion rates.
+- The member dashboard tracks live time and session history. Manual payment review can be enabled by an admin; Bachs checkout is not connected. Published packs and rates are controlled by the admin.
 
 ## Member dashboard
 
@@ -27,7 +47,7 @@ If the admin tables were created during an earlier partial setup, apply `supabas
 
 Signed-in members land on `/dashboard` after email/password sign-in or email confirmation. The dashboard shows live time granted to the account, time used in Decart sessions, session count, and recent session history. Studio usage is recorded through authenticated Supabase functions with server-side timestamps and periodic heartbeats. The live time credit table is read-only to members; trusted server integrations can grant time after a verified payment. No initial time grants or package values are assumed, so an account with no grants displays zero available time.
 
-The **Fund account** control opens the manual payment panel when an admin has configured payment instructions. A member submits the amount they paid, payment reference, and a private receipt image or PDF. The admin verifies payment outside the app, then approves and enters the number of live minutes to grant. Rejections require an admin note. Time grants and request review are committed in one database function. Bachs checkout remains unconnected.
+The **Fund account** control opens the manual payment panel when an admin has configured payment instructions. With pricing published, a member selects a time pack and saves a 24-hour quote before paying, then uploads a private receipt image or PDF; the quote memo supplies the reference. An admin verifies payment outside the app and approves the saved allocation and validity. Older unquoted requests use admin-entered minutes. Rejections require a note. Grants and review commit atomically. Bachs checkout remains unconnected.
 
 ## Run locally
 
@@ -41,13 +61,14 @@ Copy `.env.example` to `.env.local`, then set the values:
 
 ```dotenv
 DECART_API_KEY=your-decart-api-key
+SUPABASE_SECRET_KEY=your-supabase-secret-key
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 APP_ORIGINS=http://localhost:5173
 TRUST_PROXY_HOPS=0
 ```
 
-`DECART_API_KEY` is server-only. The Supabase URL and publishable key are included in the browser app; database access is protected by Row Level Security. Do not add a Supabase service-role key to the browser environment. `.env.local` is ignored by Git.
+`DECART_API_KEY` and `SUPABASE_SECRET_KEY` are server-only. The Supabase URL and publishable key are included in the browser app; database access is protected by Row Level Security. Never prefix a secret key with `VITE_`. `.env.local` is ignored by Git.
 
 In the Supabase dashboard, enable Email sign-in and add `http://localhost:5173/dashboard` and `http://localhost:5173/account` to the allowed redirect URLs. Apply migrations in timestamp order: `supabase/migrations/20261104000000_studio_user_data.sql`, `supabase/migrations/20261104120000_support_inbox.sql`, `supabase/migrations/20261105090000_live_usage_and_time_credits.sql`, `supabase/migrations/20261105130000_legal_consent.sql`, and `supabase/migrations/20261105160000_admin_site_and_manual_funding.sql`. The legal migration adds a signup trigger and consent audit row for new users; it does not backfill existing users. The admin migration adds homepage content, RLS-protected settings, public site media, private payment receipts, funding requests, and the admin review function. Grant the first admin as described in [docs/admin-console-setup.md](docs/admin-console-setup.md). Apply all migrations before deploying these changes.
 
@@ -68,13 +89,13 @@ npm run build
 npm start
 ```
 
-The Node server serves the production build and the same-origin token route. Provide `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` when building the browser bundle, plus `DECART_API_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `APP_ORIGINS` to the server at runtime. The server also accepts the `VITE_` Supabase names at runtime for local convenience. For a public deployment, `APP_ORIGINS` must contain the exact HTTPS origin(s) that host the app, such as `https://studio.example.com`, and add `https://studio.example.com/account` to Supabase's allowed redirect URLs. `API_PORT` takes precedence over platform `PORT`; the default is `8787`. Set `TRUST_PROXY_HOPS` only when the app is behind a known number of trusted reverse proxies. `npm run preview` serves the built app through the same Node server.
+The Node server serves the production build and the same-origin token route. Provide `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` when building the browser bundle, plus `DECART_API_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `APP_ORIGINS` to the server at runtime. The server also accepts the `VITE_` Supabase names at runtime for local convenience. For a public deployment, `APP_ORIGINS` must contain the exact HTTPS origin(s) that host the app, such as `https://studio.example.com`, and add `https://studio.example.com/account` to Supabase's allowed redirect URLs. `API_PORT` takes precedence over platform `PORT`; the default is `8787`. Set `TRUST_PROXY_HOPS` only when the app is behind a known number of trusted reverse proxies. `npm run preview` serves the built app through the same Node server.
 
 The token route verifies the Supabase access token with Supabase Auth before creating a Decart client token. It applies a per-process, per-IP limit of eight requests per minute, checks the browser origin, restricts tokens to `lucy-2.6`, and scopes each token to the request origin. The rate limit is process-local, so a multi-instance deployment should use a shared limiter before increasing traffic. `/healthz` reports liveness; `/readyz` checks the production build, Decart/Supabase configuration, and exact HTTPS app origins. API request logs are JSON-formatted and omit query strings, headers, and provider error details.
 
 The homepage includes editable hero, workflow, feature, demo, FAQ, and closing content. Homepage edits update open pages through Supabase Realtime. Admins use `/admin` for the dashboard, `/admin/settings/app` for site content, `/admin/settings/payments` for payment configuration, `/admin/settings/contact` for public contact details, `/admin/deposits` for receipt review, and `/admin/support` for conversations. In-page support updates and opt-in browser alerts are available while the admin inbox is open; background push and email delivery are not configured.
 
-API counters in the admin dashboard are process-local and reset on server restart. They report token issuance activity, not provider billing or account balance. Dashboard money totals remain separate by currency. Member time balances include manual adjustments; enforcing exhaustion of a running provider stream remains outside this update. See [admin setup and regression checks](docs/admin-console-setup.md) for all migrations and limits.
+API counters in the admin dashboard are process-local and reset on server restart. They report app connection-ticket activity, not provider billing or account balance. Dashboard money totals remain separate by currency. Member time balances include manual adjustments. Phase 11 adds server-controlled signaling, single-use tickets, and upstream cutoff; see [the enforcement boundary](docs/live-time-enforcement.md) for recovery and outstanding live verification. See [admin setup and regression checks](docs/admin-console-setup.md) for all migrations and limits.
 
 ## Container deployment
 
@@ -100,7 +121,7 @@ Build and run a production image with Docker using the host-neutral setup in [do
 
 The browser uses `getUserMedia` to open a local camera preview without microphone capture. When **Start live transformation** is selected, it requests microphone access, configures the camera at the model's native dimensions, and sends the camera and microphone streams to Decart. A selected reference image is also passed to Decart at session start and when the direction is updated. Stopping the session disconnects the SDK and stops the local camera and microphone tracks.
 
-The app-owned `TransformationAdapter` keeps the UI separate from provider calls. `DecartTransformationAdapter` is the only browser module that imports the Decart SDK; it uses the documented `lucy-2.6` model, `client.realtime.connect()`, atomic `realtime.set()` updates, and `disconnect()`. Fast mode remains off. The Node server's app-owned `POST /api/realtime-token` route uses the documented `client.tokens.create()` method. No direct or undocumented Decart HTTP endpoint is used.
+The app-owned `TransformationAdapter` keeps the UI separate from provider calls. `DecartTransformationAdapter` is the only browser module that imports the Decart SDK; it uses `lucy-2.6`, `client.realtime.connect()`, atomic `realtime.set()` updates, and `disconnect()`. Fast mode remains off. The SDK's `realtimeBaseUrl` points to Kinetelle's signaling proxy. `POST /api/connection-ticket` returns an app ticket; the server consumes it once, creates a scoped Decart token with the official `client.tokens.create()` method, and connects to the documented `wss://api.decart.ai/v1/stream` endpoint. Browser messages cannot choose a different upstream, model, or speed tier.
 
 ## Project structure
 
@@ -138,7 +159,7 @@ npm run preview   # Same production server after building
 
 ## Phase boundaries
 
-- Manual payment review is available after an admin configures payment instructions. Bachs checkout and payment webhooks are not active. No prices or time conversion rates are assumed; an admin sets the live minutes for each verified payment.
+- Manual payment review is available after an admin configures instructions. Bachs checkout and webhooks remain inactive. Published packs use saved quotes; older unquoted requests use admin-entered time.
 - Supabase must be configured and the SQL migration applied before account-backed saved directions work.
 - The server verifies user identity before minting Decart session tokens; database access is performed with the browser publishable key and protected by RLS.
 - The official provider integration uses ephemeral client tokens; permanent provider credentials never enter the browser bundle.

@@ -7,6 +7,7 @@ export type DashboardSummary = {
   total_sessions: number
   spent_seconds: number
   pending_deposits: number
+  total_deposits: number
   open_reports: number
   open_support: number
   money: { currency: string; approved: number; pending: number }[]
@@ -22,6 +23,9 @@ export type AdminNotification = {
 export type ApiStatus = {
   uptime_seconds: number
   decart_configured: boolean
+  live_time_configured: boolean
+  server_signaling: boolean
+  proxy_connections: number
   account_verification: string
   token_requests: number
   tokens_issued: number
@@ -33,6 +37,7 @@ export type UserDetail = {
   email: string
   created_at: string
   last_sign_in_at: string | null
+  lifetime_credited_seconds?: number
   credited_seconds: number
   spent_seconds: number
   sessions: {
@@ -78,9 +83,13 @@ function client() {
   return supabase
 }
 export async function getAdminDashboard(): Promise<DashboardSummary> {
-  const { data, error } = await client().rpc('admin_get_dashboard')
-  if (error) throw error
-  return data
+  const [summary, deposits] = await Promise.all([
+    client().rpc('admin_get_dashboard'),
+    client().from('manual_funding_requests').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
+  ])
+  if (summary.error) throw summary.error
+  if (deposits.error) throw deposits.error
+  return { ...summary.data, total_deposits: deposits.count ?? 0 }
 }
 export async function getAdminNotifications(): Promise<AdminNotification[]> {
   const { data, error } = await client().rpc('admin_get_notifications')

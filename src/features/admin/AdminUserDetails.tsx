@@ -106,7 +106,11 @@ export default function AdminUserDetails({
         </div>
         <div>
           <span>Total time granted</span>
-          <strong>{duration(detail.credited_seconds)}</strong>
+          <strong>
+            {duration(
+              detail.lifetime_credited_seconds ?? detail.credited_seconds,
+            )}
+          </strong>
         </div>
       </div>
       <dl className="admin-payment-meta">

@@ -108,6 +108,13 @@ export default function AdminDashboard({
       Icon: Clock3,
     },
     {
+      label: 'Total deposits',
+      value: summary?.total_deposits,
+      foot: 'Approved manual payments',
+      to: 'deposits',
+      Icon: CreditCard,
+    },
+    {
       label: 'Pending deposits',
       value: summary?.pending_deposits,
       foot: 'Waiting for payment verification',
@@ -198,6 +205,9 @@ export default function AdminDashboard({
             <span className={`admin-api-dot${api ? ' is-connected' : ''}`} />
           </div>
           <dl>
+            <div><dt>Session control</dt><dd>{api?.server_signaling ? 'Server controlled' : '—'}</dd></div>
+            <div><dt>Connections on this server</dt><dd>{api?.proxy_connections ?? '—'}</dd></div>
+            <div><dt>Live-time accounting</dt><dd>{api ? api.live_time_configured ? 'Configured' : 'Server key missing' : '—'}</dd></div>
             <div>
               <dt>Application API</dt>
               <dd>{api ? 'Online' : apiError ? 'Unavailable' : 'Checking…'}</dd>
@@ -217,11 +227,11 @@ export default function AdminDashboard({
               <dd>{api?.account_verification ?? '—'}</dd>
             </div>
             <div>
-              <dt>Tokens issued</dt>
+              <dt>Connection tickets issued</dt>
               <dd>{api?.tokens_issued ?? '—'}</dd>
             </div>
             <div>
-              <dt>Token requests / failures</dt>
+              <dt>Ticket requests / failures</dt>
               <dd>
                 {api ? `${api.token_requests} / ${api.failed_requests}` : '—'}
               </dd>
@@ -232,7 +242,7 @@ export default function AdminDashboard({
             </div>
           </dl>
           <p className="admin-field-help">
-            Token counters are for this server process since its last restart.
+            Ticket counters are for this server process since its last restart.
             Decart billing and provider health are not exposed here.
           </p>
           {apiError && <p className="account-error">{apiError}</p>}
